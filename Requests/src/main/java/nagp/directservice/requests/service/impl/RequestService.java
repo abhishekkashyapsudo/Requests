@@ -169,6 +169,17 @@ public class RequestService implements IRequestService{
 
 	}
 
+	@Override
+	public void cancelOrder(String consumerId, String description, String address, double amount, String description2,
+			String serviceType, String selllerId, String requestId) throws InvalidCategoryException {
+		ServiceType service = ServiceType.valueOf(serviceType);
+		if(service == null) {
+			throw new InvalidCategoryException("Invalid Service name was passed.");
+		}
+		ServiceRequest request = new ServiceRequest(consumerId, description, address, service, selllerId, requestId);
+		requestDao.addRequest(request);
+	}
+
 
 	
 

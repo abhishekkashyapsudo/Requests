@@ -57,6 +57,18 @@ public class ServiceRequest {
 		this.service = service;
 		this.sellersRejected = new ArrayList<String>();
 	}
+	
+	public ServiceRequest(String consumerId, String description, String address,
+			ServiceType service, String sellerId, String requestId) {
+		super();
+		this.requestId = requestId;
+		this.consumerId = consumerId;
+		this.description = description;
+		this.address = address;
+		this.service = service;
+		this.sellersRejected = new ArrayList<String>();
+		this.sellersRejected.add(sellerId);
+	}
 
 	public String getRequestedSellerId() {
 		return requestedSellerId;
@@ -105,11 +117,5 @@ public class ServiceRequest {
 	public ServiceType getService() {
 		return service;
 	}
-	
-	
-	
-	
-	
-	
 	
 }

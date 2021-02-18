@@ -112,4 +112,18 @@ public class RequestController {
 		}
 		return "Request successfully created with request id " + id;
 	}
+	
+	@PostMapping(value = "/cancelOrder")
+	void cancelOrder(@RequestParam String sellerId, @RequestParam String address, 
+			@RequestParam double amount,@RequestParam String description, @RequestParam String service,
+			@RequestParam String consumerId, @RequestParam String requestId) {
+		logger.info("Working from port " + port + " of Consumer service");
+		try {
+			requestService.cancelOrder(consumerId, description, address, amount, description,
+					service, sellerId, requestId);
+		}
+		catch(Exception e) {
+			logger.error(e.getMessage(), e);
+		}
+	}
 }

@@ -28,4 +28,7 @@ public interface IRequestService {
 
 	String setAmount(String requestId, double amount) throws RequestNotFoundException;
 
+	void cancelOrder(String consumerId, String description, String address, double amount, String description2,
+			String service, String sellerId, String requestId) throws InvalidCategoryException;
+
 }
