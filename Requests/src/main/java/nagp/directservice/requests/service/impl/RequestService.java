@@ -29,6 +29,9 @@ public class RequestService implements IRequestService{
 
 	private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RequestService.class);
 
+	@Resource(name = "restTemplate")
+	private RestTemplate restTemplate;
+	
 	@Resource
 	IRequestDao requestDao;
 
@@ -60,7 +63,6 @@ public class RequestService implements IRequestService{
 		Optional<ServiceRequest> request = getRequest(requestid);
 		if(request.isPresent()) {
 			String baseUrl = loadBalancerClient.choose("sellers").getUri().toString() + "/sellers/"+sellerid;
-			RestTemplate restTemplate = new RestTemplate();
 			ResponseEntity<String> response = null;
 			try {
 				UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
@@ -106,7 +108,6 @@ public class RequestService implements IRequestService{
 	@HystrixCommand(fallbackMethod = "acceptRequestFallback")
 	private String createOrder(String sellerId, Optional<ServiceRequest> request) {
 		String baseUrl = loadBalancerClient.choose("orders").getUri().toString() + "/orders/";
-		RestTemplate restTemplate = new RestTemplate();
 		ResponseEntity<String> response = null;
 		try {
 			UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
