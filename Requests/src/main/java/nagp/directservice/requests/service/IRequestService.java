@@ -17,7 +17,7 @@ public interface IRequestService {
 
 	List<ServiceRequest> getConsumerRequests(String consumerId);
 
-	ServiceRequest requestSeller(String sellerid, String requestid) throws RequestNotFoundException, Exception;
+	boolean validateSeller(String sellerid, String requestid) throws RequestNotFoundException, Exception;
 
 	String acceptRequest(String sellerid, String requestid) throws RequestNotFoundException, Exception;
 	ServiceRequest declineRequest(String sellerid, String requestid) throws RequestNotFoundException;

@@ -64,76 +64,45 @@ public class RequestService implements IRequestService{
 	}
 
 	
-	public ServiceRequest requestSeller(String sellerid, String requestid) throws Exception {
-		Optional<ServiceRequest> request = getRequest(requestid);
-		if(request.isPresent()) {
-
-
-			boolean isValidSeller;
-			try {
-				isValidSeller = validateSeller(sellerid);
-				if(isValidSeller) {
-					request.get().setRequestedSellerId(sellerid);
-					try {
-						logger.info("Sending notification to Seller...!!!");
-						jmsTemplate.convertAndSend("SELLER_REQUESTED", new String[] {requestid, sellerid});
-					}
-					catch(Exception e) {
-						logger.warn(e.getMessage(), e);
-					}
-				}
-				else
-					throw new Exception("Invalid Seller id.");
-				return request.get();
-
-
-			} catch (Exception ex) {
-				logger.warn(ex.getMessage(), ex);
-				throw ex;
-			}
-
-		}
-		throw new RequestNotFoundException(requestid);
-	}
-
 	@HystrixCommand(fallbackMethod = "validateSellerFallback")
-	private boolean validateSeller(String sellerid) {
-		boolean isValidSeller;
-		String baseUrl = loadBalancerClient.choose("sellers").getUri().toString() + "/sellers/"+sellerid;
-		ResponseEntity<String> response = null;
-		UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
+	public boolean validateSeller(String sellerid, String requestid) throws Exception {
 
-		response = restTemplate.exchange(builder.buildAndExpand().toUri(), HttpMethod.GET, null,
-				String.class);
-		isValidSeller = response.getStatusCode() == HttpStatus.OK;
-		return isValidSeller;
+		try {
+			String baseUrl = loadBalancerClient.choose("sellers").getUri().toString() + "/sellers/"+sellerid;
+			ResponseEntity<String> response = null;
+			UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
+
+			response = restTemplate.exchange(builder.buildAndExpand().toUri(), HttpMethod.GET, null,
+					String.class);
+			boolean isValidSeller = response.getStatusCode() == HttpStatus.OK;
+			if(isValidSeller) {
+				ServiceRequest request = getRequest(requestid).get();
+				request.setRequestedSellerId(sellerid);
+				try {
+					logger.info("Sending notification to Seller...!!!");
+					jmsTemplate.convertAndSend("SELLER_REQUESTED", new String[] {requestid, sellerid});
+				}
+				catch(Exception e) {
+					logger.warn(e.getMessage(), e);
+				}
+			}
+			return isValidSeller;
+
+		} catch (Exception ex) {
+			logger.warn(ex.getMessage(), ex);
+			throw ex;
+		}
+
+
 	}
 
 
-	public String acceptRequest(String sellerId, String requestid) throws Exception {
-		Optional<ServiceRequest> request = getRequest(requestid);
-		if(request.isPresent()) {
-
-			if(!request.get().getRequestedSellerId().equalsIgnoreCase(sellerId)) {
-				throw new Exception("Passed seller id is not equal to the requested Seller Id.");
-			}
-
-			if(request.get().getAmount() <= 0) {
-				throw new Exception("Amount is not added by the admin yet.");
-
-			}
-
-			return createOrder(sellerId, request);
-		}
-		else {
-			throw new RequestNotFoundException(requestid);
-		}
-	}
 
 	@HystrixCommand(fallbackMethod = "acceptRequestFallback")
-	private String createOrder(String sellerId, Optional<ServiceRequest> request) {
+	public String acceptRequest(String sellerId, String requestid) throws Exception {
 		String baseUrl = loadBalancerClient.choose("orders").getUri().toString() + "/orders/";
 		ResponseEntity<String> response = null;
+		Optional<ServiceRequest> request = getRequest(requestid);
 		try {
 			UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
 					.queryParam("sellerId", sellerId)
@@ -152,6 +121,7 @@ public class RequestService implements IRequestService{
 		return response.getBody();
 	}
 
+	
 	public String setAmount(String requestId, double amount) throws RequestNotFoundException {
 		return requestDao.setAmount(requestId, amount);
 	}
@@ -179,7 +149,7 @@ public class RequestService implements IRequestService{
 		return request.getRequestId();
 	}
 
-	public String acceptRequestFallback(String sellerId, Optional<ServiceRequest> request) {
+	public String acceptRequestFallback(String sellerId, String requestid) {
 		logger.warn("Orders Service is down!!! fallback route enabled...");
 
 		return "CIRCUIT BREAKER ENABLED!!! No Response From Orders Service at this moment. " +
@@ -187,7 +157,7 @@ public class RequestService implements IRequestService{
 
 	}
 
-	public boolean validateSellerFallback(String sellerid) throws Exception  {
+	public boolean validateSellerFallback(String sellerid, String requestid) throws Exception  {
 		logger.warn("Sellers Service is down!!! fallback route enabled...");
 
 		throw new Exception( "CIRCUIT BREAKER ENABLED!!! No Response From Sellers Service at this moment. " +
