@@ -37,7 +37,7 @@ public class RequestController {
 	
 	@Resource
 	private IRequestService requestService;
-
+	
 	
 	@GetMapping(value = "/{requestId}")
 	ServiceRequest getRequest(@PathVariable(name = "requestId") String requestId) throws RequestNotFoundException {
@@ -68,7 +68,7 @@ public class RequestController {
 	}
 	
 	@GetMapping(value = "requestSeller")
-	ServiceRequest requestSeller(@RequestParam String sellerid, @RequestParam String requestid) throws RequestNotFoundException {
+	ServiceRequest requestSeller(@RequestParam String sellerid, @RequestParam String requestid) throws Exception {
 		logger.info("Working from port " + port + " of Requests service");
 		return requestService.requestSeller(sellerid, requestid);
 	}

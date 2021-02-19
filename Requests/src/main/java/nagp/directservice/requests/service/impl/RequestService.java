@@ -11,6 +11,7 @@ import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -31,7 +32,10 @@ public class RequestService implements IRequestService{
 
 	@Resource(name = "restTemplate")
 	private RestTemplate restTemplate;
-	
+
+	@Autowired
+	private JmsTemplate jmsTemplate;
+
 	@Resource
 	IRequestDao requestDao;
 
@@ -47,6 +51,7 @@ public class RequestService implements IRequestService{
 
 	}
 
+
 	public List<ServiceRequest> getSellerRequests(String sellerid) {
 		return requestDao.getAllRequests().stream().filter(r -> r.getRequestedSellerId() != null && r.getRequestedSellerId().equalsIgnoreCase(sellerid))
 				.collect(Collectors.<ServiceRequest>toList());
@@ -58,19 +63,25 @@ public class RequestService implements IRequestService{
 
 	}
 
-	@HystrixCommand(fallbackMethod = "requestSellerFallback")
-	public ServiceRequest requestSeller(String sellerid, String requestid) throws RequestNotFoundException {
+	
+	public ServiceRequest requestSeller(String sellerid, String requestid) throws Exception {
 		Optional<ServiceRequest> request = getRequest(requestid);
 		if(request.isPresent()) {
-			String baseUrl = loadBalancerClient.choose("sellers").getUri().toString() + "/sellers/"+sellerid;
-			ResponseEntity<String> response = null;
-			try {
-				UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
 
-				response = restTemplate.exchange(builder.buildAndExpand().toUri(), HttpMethod.GET, null,
-						String.class);
-				if(response.getStatusCode() ==HttpStatus.OK)
+
+			boolean isValidSeller;
+			try {
+				isValidSeller = validateSeller(sellerid);
+				if(isValidSeller) {
 					request.get().setRequestedSellerId(sellerid);
+					try {
+						logger.info("Sending notification to Seller...!!!");
+						jmsTemplate.convertAndSend("SELLER_REQUESTED", new String[] {requestid, sellerid});
+					}
+					catch(Exception e) {
+						logger.warn(e.getMessage(), e);
+					}
+				}
 				else
 					throw new Exception("Invalid Seller id.");
 				return request.get();
@@ -78,13 +89,27 @@ public class RequestService implements IRequestService{
 
 			} catch (Exception ex) {
 				logger.warn(ex.getMessage(), ex);
+				throw ex;
 			}
-			
+
 		}
 		throw new RequestNotFoundException(requestid);
 	}
 
-	
+	@HystrixCommand(fallbackMethod = "validateSellerFallback")
+	private boolean validateSeller(String sellerid) {
+		boolean isValidSeller;
+		String baseUrl = loadBalancerClient.choose("sellers").getUri().toString() + "/sellers/"+sellerid;
+		ResponseEntity<String> response = null;
+		UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
+
+		response = restTemplate.exchange(builder.buildAndExpand().toUri(), HttpMethod.GET, null,
+				String.class);
+		isValidSeller = response.getStatusCode() == HttpStatus.OK;
+		return isValidSeller;
+	}
+
+
 	public String acceptRequest(String sellerId, String requestid) throws Exception {
 		Optional<ServiceRequest> request = getRequest(requestid);
 		if(request.isPresent()) {
@@ -92,7 +117,7 @@ public class RequestService implements IRequestService{
 			if(!request.get().getRequestedSellerId().equalsIgnoreCase(sellerId)) {
 				throw new Exception("Passed seller id is not equal to the requested Seller Id.");
 			}
-			
+
 			if(request.get().getAmount() <= 0) {
 				throw new Exception("Amount is not added by the admin yet.");
 
@@ -161,12 +186,12 @@ public class RequestService implements IRequestService{
 		" Service will be back shortly - ";
 
 	}
-	
-	public ServiceRequest requestSellerFallback(String sellerid, String requestid) throws Exception  {
+
+	public boolean validateSellerFallback(String sellerid) throws Exception  {
 		logger.warn("Sellers Service is down!!! fallback route enabled...");
-			
+
 		throw new Exception( "CIRCUIT BREAKER ENABLED!!! No Response From Sellers Service at this moment. " +
-		" Service will be back shortly - ");
+				" Service will be back shortly - ");
 
 	}
 
@@ -182,7 +207,7 @@ public class RequestService implements IRequestService{
 	}
 
 
-	
+
 
 
 
