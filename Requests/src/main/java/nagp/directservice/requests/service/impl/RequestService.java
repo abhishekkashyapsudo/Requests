@@ -115,6 +115,7 @@ public class RequestService implements IRequestService{
 
 			response = restTemplate.exchange(builder.buildAndExpand().toUri(), HttpMethod.POST, null,
 					String.class);
+			deleteRequest(requestid);
 		} catch (Exception ex) {
 			logger.warn(ex.getMessage(), ex);
 		}
